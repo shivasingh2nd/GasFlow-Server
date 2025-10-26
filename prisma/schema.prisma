@@ -1,0 +1,352 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER TABLE
+// ============================================
+model User {
+  id              Int       @id @default(autoincrement())
+  name            String
+  email           String    @unique
+  mobileNumber    String    @unique @map("mobile_number")
+  passwordHash    String    @map("password_hash")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  orders                    Order[]
+  payments                  Payment[]
+  inventory                 Inventory[]
+  staff                     Staff[]
+  customers                 Customer[]
+  dailySales                DailySales[]
+  cylinderReturns           CylinderReturn[]
+  inventoryAdjustments      InventoryAdjustment[]
+  customerCylinderLoans     CustomerCylinderLoan[]
+  loanCylinderReturns       LoanCylinderReturn[]
+
+  @@map("users")
+}
+
+// ============================================
+// DISTRIBUTOR TABLE
+// ============================================
+model Distributor {
+  id              Int       @id @default(autoincrement())
+  distributorName String    @map("distributor_name")
+  contactNumber   String    @map("contact_number")
+  address         String    @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  orders          Order[]
+  payments        Payment[]
+  cylinderReturns CylinderReturn[]
+
+  @@map("distributors")
+}
+
+// ============================================
+// CYLINDER TYPE TABLE
+// ============================================
+enum Company {
+  HPCL
+  IOCL
+  BPCL
+}
+
+enum Category {
+  Domestic
+  Commercial
+}
+
+model CylinderType {
+  id              Int       @id @default(autoincrement())
+  company         Company
+  typeCategory    Category  @map("type_category")
+  weightKg        Decimal   @map("weight_kg") @db.Decimal(5, 2)
+  isDiscontinued  Boolean   @default(false) @map("is_discontinued")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  orderItems               OrderItem[]
+  cylinderReturns          CylinderReturn[]
+  inventory                Inventory[]
+  salesItems               SalesItem[]
+  inventoryAdjustments     InventoryAdjustment[]
+  customerCylinderLoans    CustomerCylinderLoan[]
+  loanCylinderReturns      LoanCylinderReturn[]
+  emptyReceivedOnSales     EmptyReceivedOnSale[]
+
+  @@unique([company, typeCategory, weightKg])
+  @@map("cylinder_types")
+}
+
+// ============================================
+// INVENTORY TABLE
+// ============================================
+model Inventory {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")
+  cylinderTypeId  Int       @map("cylinder_type_id")
+  fullCylinders   Int       @default(0) @map("full_cylinders")
+  emptyCylinders  Int       @default(0) @map("empty_cylinders")
+  lastUpdated     DateTime  @updatedAt @map("last_updated")
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cylinderType    CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, cylinderTypeId])
+  @@map("inventory")
+}
+
+// ============================================
+// ORDER TABLE
+// ============================================
+model Order {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")
+  distributorId   Int       @map("distributor_id")
+  orderDate       DateTime  @map("order_date") @db.Date
+  deliveryPerson  String    @map("delivery_person")
+  totalAmount     Decimal   @map("total_amount") @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  distributor     Distributor   @relation(fields: [distributorId], references: [id], onDelete: Restrict)
+  orderItems      OrderItem[]
+
+  @@map("orders")
+}
+
+// ============================================
+// ORDER ITEM TABLE
+// ============================================
+model OrderItem {
+  id                  Int       @id @default(autoincrement())
+  orderId             Int       @map("order_id")
+  cylinderTypeId      Int       @map("cylinder_type_id")
+  quantity            Int
+  pricePerCylinder    Decimal   @map("price_per_cylinder") @db.Decimal(10, 2)
+
+  // Relations
+  order               Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  cylinderType        CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("order_items")
+}
+
+// ============================================
+// CYLINDER RETURN TABLE
+// ============================================
+model CylinderReturn {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")
+  distributorId   Int       @map("distributor_id")
+  cylinderTypeId  Int       @map("cylinder_type_id")
+  quantity        Int
+  returnDate      DateTime  @map("return_date") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  distributor     Distributor   @relation(fields: [distributorId], references: [id], onDelete: Restrict)
+  cylinderType    CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("cylinder_returns")
+}
+
+// ============================================
+// PAYMENT TABLE
+// ============================================
+enum PaymentMethod {
+  Cash
+  UPI
+  Card
+  Cheque
+  BankTransfer
+  Other
+}
+
+model Payment {
+  id                      Int           @id @default(autoincrement())
+  userId                  Int           @map("user_id")
+  distributorId           Int           @map("distributor_id")
+  amountPaid              Decimal       @map("amount_paid") @db.Decimal(10, 2)
+  paymentDate             DateTime      @map("payment_date") @db.Date
+  paymentMethod           PaymentMethod @default(Cash) @map("payment_method")
+  transactionReference    String?       @map("transaction_reference")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime?     @updatedAt @map("updated_at")
+
+  // Relations
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  distributor             Distributor   @relation(fields: [distributorId], references: [id], onDelete: Restrict)
+
+  @@map("payments")
+}
+
+// ============================================
+// STAFF TABLE
+// ============================================
+model Staff {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")
+  staffName       String    @map("staff_name")
+  mobileNumber    String    @map("mobile_number")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  dailySales      DailySales[]
+
+  @@map("staff")
+}
+
+// ============================================
+// DAILY SALES TABLE
+// ============================================
+model DailySales {
+  id                    Int       @id @default(autoincrement())
+  userId                Int       @map("user_id")
+  staffId               Int       @map("staff_id")
+  salesDate             DateTime  @map("sales_date") @db.Date
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  staff                 Staff                  @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  salesItems            SalesItem[]
+  emptyReceivedOnSales  EmptyReceivedOnSale[]
+
+  @@map("daily_sales")
+}
+
+// ============================================
+// SALES ITEM TABLE
+// ============================================
+model SalesItem {
+  id                      Int       @id @default(autoincrement())
+  salesId                 Int       @map("sales_id")
+  cylinderTypeId          Int       @map("cylinder_type_id")
+  quantitySold            Int       @map("quantity_sold")
+  sellingPricePerCylinder Decimal   @map("selling_price_per_cylinder") @db.Decimal(10, 2)
+
+  // Relations
+  dailySales              DailySales    @relation(fields: [salesId], references: [id], onDelete: Restrict)
+  cylinderType            CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("sales_items")
+}
+
+// ============================================
+// INVENTORY ADJUSTMENT TABLE
+// ============================================
+model InventoryAdjustment {
+  id                    Int       @id @default(autoincrement())
+  userId                Int       @map("user_id")
+  cylinderTypeId        Int       @map("cylinder_type_id")
+  fullCylinderChange    Int       @map("full_cylinder_change")
+  emptyCylinderChange   Int       @map("empty_cylinder_change")
+  reason                String
+  adjustmentDate        DateTime  @map("adjustment_date") @db.Date
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cylinderType          CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("inventory_adjustments")
+}
+
+// ============================================
+// CUSTOMER TABLE
+// ============================================
+model Customer {
+  id                    Int       @id @default(autoincrement())
+  userId                Int       @map("user_id")
+  customerName          String    @map("customer_name")
+  phoneNumber           String    @map("phone_number")
+  address               String    @db.Text
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  customerCylinderLoans CustomerCylinderLoan[]
+  loanCylinderReturns   LoanCylinderReturn[]
+
+  @@unique([customerName, phoneNumber])
+  @@map("customers")
+}
+
+// ============================================
+// CUSTOMER CYLINDER LOAN TABLE
+// ============================================
+model CustomerCylinderLoan {
+  id              Int       @id @default(autoincrement())
+  customerId      Int       @map("customer_id")
+  userId          Int       @map("user_id")
+  cylinderTypeId  Int       @map("cylinder_type_id")
+  quantityLoaned  Int       @map("quantity_loaned")
+  loanDate        DateTime  @map("loan_date") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cylinderType    CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("customer_cylinder_loans")
+}
+
+// ============================================
+// LOAN CYLINDER RETURN TABLE
+// ============================================
+model LoanCylinderReturn {
+  id                Int       @id @default(autoincrement())
+  customerId        Int       @map("customer_id")
+  userId            Int       @map("user_id")
+  cylinderTypeId    Int       @map("cylinder_type_id")
+  quantityReturned  Int       @map("quantity_returned")
+  returnDate        DateTime  @map("return_date") @db.Date
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  customer          Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cylinderType      CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("loan_cylinder_returns")
+}
+
+// ============================================
+// EMPTY RECEIVED ON SALE TABLE
+// ============================================
+model EmptyReceivedOnSale {
+  id                Int       @id @default(autoincrement())
+  salesId           Int       @map("sales_id")
+  cylinderTypeId    Int       @map("cylinder_type_id")
+  quantityReceived  Int       @map("quantity_received")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  dailySales        DailySales    @relation(fields: [salesId], references: [id], onDelete: Restrict)
+  cylinderType      CylinderType  @relation(fields: [cylinderTypeId], references: [id], onDelete: Restrict)
+
+  @@map("empty_received_on_sales")
+}
