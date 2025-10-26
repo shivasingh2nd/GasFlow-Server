@@ -12,7 +12,7 @@ import { errorHandler, notFoundHandler } from "./middleware";
 import "./utils/stringExtensions";
 
 // Import routes (we'll create these)
-// import routes from './routes';
+import routes from "./routes";
 
 const app: Application = express();
 
@@ -54,7 +54,7 @@ app.get("/health", async (req, res) => {
 });
 
 // API Routes
-// app.use('/api', routes);
+app.use("/api", routes);
 
 // Error handling
 app.use(notFoundHandler);
