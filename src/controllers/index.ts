@@ -2,3 +2,7 @@ export * from "./auth.controller";
 export * from "./distributor.controller";
 export * from "./staff.controller";
 export * from "./order.controller";
+export * from "./payment.controller";
+export * from "./inventory.controller";
+export * from "./customer.controller";
+export * from "./sales.controller";
