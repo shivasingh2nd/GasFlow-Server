@@ -6,3 +6,4 @@ export * from "./payment.controller";
 export * from "./inventory.controller";
 export * from "./customer.controller";
 export * from "./sales.controller";
+export * from "./report.controller";
